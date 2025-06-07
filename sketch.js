@@ -2,38 +2,57 @@ let nodes = [];
 let edges = [];
 
 let mode = 'creation'; // 'creation' ou 'chemin'
-
 let selectedStart = null;
 let selectedEnd = null;
+let selectedNode = null;
 let shortestPath = [];
+let lastNodeClicked = null;
 
 function setup() {
   createCanvas(600, 400);
 
-  // Bouton pour changer mode
+  // Bouton de mode
   let btn = createButton('Mode: Création');
   btn.position(10, 10);
   btn.mousePressed(() => {
-    if (mode === 'creation') {
-      mode = 'chemin';
-      selectedStart = null;
-      selectedEnd = null;
-      shortestPath = [];
-      btn.html('Mode: Chemin');
-    } else {
-      mode = 'creation';
-      selectedStart = null;
-      selectedEnd = null;
-      shortestPath = [];
-      btn.html('Mode: Création');
-    }
+    mode = mode === 'creation' ? 'chemin' : 'creation';
+    selectedStart = null;
+    selectedEnd = null;
+    shortestPath = [];
+    btn.html('Mode: ' + (mode === 'creation' ? 'Création' : 'Chemin'));
   });
+
+  // Bouton pour layout
+  let layoutBtn = createButton('Réorganiser (layout propre)');
+  layoutBtn.position(30, 70);
+  layoutBtn.mousePressed(() => {
+    layoutCircle();
+  });
+  
+  let layoutBtn2 = createButton('Réorganiser (layout cercle)');
+  layoutBtn2.position(10, 40);
+  layoutBtn2.mousePressed(() => {
+    applyForceDirectedLayout();
+  });
+  
+  let btnGen = createButton('Générer Graphe');
+btnGen.position(150, 10);
+btnGen.mousePressed(() => {
+  let n = int(prompt("Nombre de noeuds ?"));
+  let m = int(prompt("Nombre d'arêtes ?"));
+  if (n > 1 && m >= n - 1) {
+    genererGraphe(n, m);
+  } else {
+    alert("Valeurs invalides (minimum : 2 noeuds, m ≥ n-1)");
+  }
+});
+
 }
 
 function draw() {
   background(240);
 
-  // Dessiner arêtes
+  // Arêtes
   strokeWeight(2);
   for (let e of edges) {
     let n1 = nodes[e[0]];
@@ -48,14 +67,16 @@ function draw() {
     line(n1.x, n1.y, n2.x, n2.y);
   }
 
-  // Dessiner noeuds
+  // Nœuds
   for (let i = 0; i < nodes.length; i++) {
-    fill(200);
-    stroke(0);
-    strokeWeight(1);
     if (i === selectedStart) fill(0, 255, 0);
     else if (i === selectedEnd) fill(255, 0, 0);
     else if (shortestPath.includes(i)) fill(255, 150, 150);
+    else if (i === lastNodeClicked && mode === 'creation') fill(100, 100, 255);
+    else fill(200);
+
+    stroke(0);
+    strokeWeight(1);
     ellipse(nodes[i].x, nodes[i].y, 30, 30);
 
     fill(0);
@@ -64,38 +85,31 @@ function draw() {
     text(i, nodes[i].x, nodes[i].y);
   }
 
-  // Instructions en bas
+  // Instructions
   noStroke();
   fill(50);
   textSize(14);
   if (mode === 'creation') {
-    text('Mode Création : Clique pour créer un noeud. Clique sur deux noeuds successifs pour créer une arête.', 10, height - 20);
+    text('Mode Création : Clique pour créer un noeud. Clique sur deux noeuds pour créer une arête.', 10, height - 20);
   } else {
-    text('Mode Chemin : Clique sur deux noeuds pour sélectionner départ (vert) et arrivée (rouge).', 10, height - 20);
+    text('Mode Chemin : Clique sur deux noeuds pour définir départ (vert) et arrivée (rouge).', 10, height - 20);
   }
 }
 
-// Variables pour gérer création d’arêtes
-let lastNodeClicked = null;
-
 function mousePressed() {
-  // Vérifier si clic sur un noeud existant
   for (let i = 0; i < nodes.length; i++) {
     let d = dist(mouseX, mouseY, nodes[i].x, nodes[i].y);
     if (d < 15) {
+      selectedNode = i;
+
       if (mode === 'creation') {
-        // En mode création : créer arête entre lastNodeClicked et ce noeud
-        if (lastNodeClicked !== null && lastNodeClicked !== i) {
-          // Vérifier que l’arête n’existe pas déjà
-          if (!edgeExists(lastNodeClicked, i)) {
-            edges.push([lastNodeClicked, i]);
-          }
-          lastNodeClicked = null; // Reset après création
+        if (lastNodeClicked !== null && lastNodeClicked !== i && !edgeExists(lastNodeClicked, i)) {
+          edges.push([lastNodeClicked, i]);
+          lastNodeClicked = null;
         } else {
           lastNodeClicked = i;
         }
       } else if (mode === 'chemin') {
-        // En mode chemin : sélectionner départ/arrivée
         if (selectedStart === null) {
           selectedStart = i;
           selectedEnd = null;
@@ -113,11 +127,21 @@ function mousePressed() {
     }
   }
 
-  // Pas sur noeud
   if (mode === 'creation') {
     nodes.push({ x: mouseX, y: mouseY });
     lastNodeClicked = null;
   }
+}
+
+function mouseDragged() {
+  if (selectedNode !== null) {
+    nodes[selectedNode].x = mouseX;
+    nodes[selectedNode].y = mouseY;
+  }
+}
+
+function mouseReleased() {
+  selectedNode = null;
 }
 
 function edgeExists(a, b) {
@@ -132,11 +156,18 @@ function shortestPathIncludesEdge(edge) {
     if (
       (shortestPath[i] === edge[0] && shortestPath[i + 1] === edge[1]) ||
       (shortestPath[i] === edge[1] && shortestPath[i + 1] === edge[0])
-    ) {
-      return true;
-    }
+    ) return true;
   }
   return false;
+}
+
+function getNeighbors(i) {
+  let neighbors = [];
+  for (let e of edges) {
+    if (e[0] === i) neighbors.push(e[1]);
+    else if (e[1] === i) neighbors.push(e[0]);
+  }
+  return neighbors;
 }
 
 function bfs(start, end) {
@@ -148,9 +179,7 @@ function bfs(start, end) {
   while (queue.length > 0) {
     let current = queue.shift();
     if (current === end) break;
-
-    let neighbors = getNeighbors(current);
-    for (let n of neighbors) {
+    for (let n of getNeighbors(current)) {
       if (!visited[n]) {
         visited[n] = true;
         parent[n] = current;
@@ -161,19 +190,100 @@ function bfs(start, end) {
 
   let path = [];
   if (!visited[end]) return [];
-
   for (let at = end; at != null; at = parent[at]) {
     path.push(at);
   }
-  path.reverse();
-  return path;
+  return path.reverse();
 }
 
-function getNeighbors(nodeIndex) {
-  let neighbors = [];
-  for (let e of edges) {
-    if (e[0] === nodeIndex) neighbors.push(e[1]);
-    else if (e[1] === nodeIndex) neighbors.push(e[0]);
+function applyForceDirectedLayout(iterations = 200) {
+  const width = 600;
+  const height = 400;
+  const area = width * height * 2.5; // ↑ aire virtuelle augmentée
+  const k = Math.sqrt(area / (nodes.length + 1));
+  const temperature = 20; // ↑ permet de plus grands déplacements
+
+  for (let iter = 0; iter < iterations; iter++) {
+    let disp = nodes.map(() => createVector(0, 0));
+
+    // Répulsion entre tous les nœuds
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        let delta = createVector(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
+        let distSq = delta.magSq() + 0.01;
+        let force = (k * k) / distSq;
+        delta.normalize().mult(force);
+        disp[i].add(delta);
+        disp[j].sub(delta);
+      }
+    }
+
+    // Attraction des arêtes
+    for (let e of edges) {
+      let i = e[0], j = e[1];
+      let delta = createVector(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
+      let dist = delta.mag() + 0.01;
+      let force = (dist * dist) / (k * 1.5); // ↓ attraction adoucie
+      delta.normalize().mult(force);
+      disp[i].sub(delta);
+      disp[j].add(delta);
+    }
+
+    // Mise à jour des positions
+    for (let i = 0; i < nodes.length; i++) {
+      let d = disp[i];
+      d.limit(temperature);
+      nodes[i].x += d.x;
+      nodes[i].y += d.y;
+      nodes[i].x = constrain(nodes[i].x, 30, width - 30);
+      nodes[i].y = constrain(nodes[i].y, 30, height - 30);
+    }
   }
-  return neighbors;
 }
+
+
+  function genererGraphe(numNodes, numEdges) {
+  nodes = [];
+  edges = [];
+
+  // Générer les nœuds aléatoirement
+  for (let i = 0; i < numNodes; i++) {
+    nodes.push({
+      x: random(50, width - 50),
+      y: random(50, height - 50)
+    });
+  }
+
+  // 1. Créer une chaîne linéaire pour assurer connexité
+  for (let i = 0; i < numNodes - 1; i++) {
+    edges.push([i, i + 1]);
+  }
+
+  // 2. Ajouter des arêtes aléatoires supplémentaires
+  let maxEdges = (numNodes * (numNodes - 1)) / 2; // nombre max d’arêtes possibles dans un graphe simple non orienté
+  let targetEdges = min(numEdges, maxEdges);
+  let currentEdges = edges.length;
+
+  while (currentEdges < targetEdges) {
+    let a = floor(random(numNodes));
+    let b = floor(random(numNodes));
+    if (a !== b && !edgeExists(a, b)) {
+      edges.push([a, b]);
+      currentEdges++;
+    }
+  }
+}
+
+function layoutCircle() {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = min(width, height) / 2 - 50; // rayon avec marge
+
+  let n = nodes.length;
+  for (let i = 0; i < n; i++) {
+    let angle = (TWO_PI / n) * i;
+    nodes[i].x = centerX + radius * cos(angle);
+    nodes[i].y = centerY + radius * sin(angle);
+  }
+}
+
