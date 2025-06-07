@@ -9,7 +9,7 @@ let shortestPath = [];
 let lastNodeClicked = null;
 
 function setup() {
-  createCanvas(600, 400);
+  createCanvas(1800, 800);
 
   // Bouton de mode
   let btn = createButton('Mode: Création');
