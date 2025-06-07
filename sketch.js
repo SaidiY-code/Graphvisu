@@ -197,8 +197,6 @@ function bfs(start, end) {
 }
 
 function applyForceDirectedLayout(iterations = 200) {
-  const width = 600;
-  const height = 400;
   const area = width * height * 2.5; // ↑ aire virtuelle augmentée
   const k = Math.sqrt(area / (nodes.length + 1));
   const temperature = 20; // ↑ permet de plus grands déplacements
