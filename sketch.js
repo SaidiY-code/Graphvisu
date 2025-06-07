@@ -22,6 +22,21 @@ function setup() {
     btn.html('Mode: ' + (mode === 'creation' ? 'Création' : 'Chemin'));
   });
 
+  // Bouton sauvegarder
+let btnSave = createButton('Sauvegarder');
+btnSave.position(100, 10);
+btnSave.mousePressed(() => {
+  saveGraph();
+});
+
+// Bouton charger
+let btnLoad = createButton('Charger');
+btnLoad.position(180, 10);
+btnLoad.mousePressed(() => {
+  let json = prompt("Collez ici le JSON du graphe à charger:");
+  if (json) loadGraph(json);
+});
+
   // Bouton pour layout
   let layoutBtn = createButton('Réorganiser (layout propre)');
   layoutBtn.position(30, 70);
@@ -284,4 +299,34 @@ function layoutCircle() {
     nodes[i].y = centerY + radius * sin(angle);
   }
 }
+// Sauvegarder le graphe en JSON (affiché dans une popup ou console)
+function saveGraph() {
+  const graphData = {
+    nodes: nodes,
+    edges: edges,
+  };
+  const json = JSON.stringify(graphData);
+  // Pour l’exemple, on affiche dans une nouvelle fenêtre
+  // Tu peux adapter pour télécharger un fichier ou autre
+  window.open().document.write('<pre>' + json + '</pre>');
+}
+
+// Charger le graphe à partir d’un JSON donné
+function loadGraph(json) {
+  try {
+    const graphData = JSON.parse(json);
+    if (graphData.nodes && graphData.edges) {
+      nodes = graphData.nodes;
+      edges = graphData.edges;
+      selectedStart = null;
+      selectedEnd = null;
+      shortestPath = [];
+    } else {
+      alert("Fichier JSON invalide");
+    }
+  } catch (e) {
+    alert("Erreur en chargeant JSON: " + e.message);
+  }
+}
+
 
